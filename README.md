@@ -11,6 +11,9 @@
    * alfred中输入"tick_login 用户名<空格>密码"登陆，登陆后会把需要的cookie和收集箱的id保存到~/.ticktick文件中
 
 ### 使用
+
+  ![screen](https://github.com/jedy/alfred-tick/blob/master/screenshot.png?raw=true)
+  
    * 输入"tick 任务 [日期] [时间]"，日期和时间都可以不写
    * 日期支持下面这些形式
        - tomorrow
