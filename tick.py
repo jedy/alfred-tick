@@ -222,11 +222,11 @@ def login(query):
 
 if len(sys.argv) == 3:
     if sys.argv[1] == "parse":
-        desc(sys.argv[2])
+        desc(sys.argv[2].decode("utf8"))
     elif sys.argv[1] == "login":
         login(sys.argv[2])
 else:
-    if send(sys.argv[1]):
+    if send(sys.argv[1].decode("utf8")):
         print "Done"
     else:
         print "Failed"
