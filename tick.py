@@ -72,12 +72,15 @@ def send(query):
         return False
     return c.code == 200
 
-def token(q):
+def token(q, remove_last):
+    if remove_last:
+        i = q["title"].rfind(" ")
+        q["title"] = q["title"][:i].strip()
+
     i = q["title"].rfind(" ")
     if i == -1:
         return None
     t = q["title"][i+1:]
-    q["title"] = q["title"][:i].strip()
     return t.lower()
 
 def parse(query):
@@ -97,8 +100,9 @@ def parse(query):
     tz = tzlocal.get_localzone()
     d = datetime.datetime.now(tz)
     d = d.replace(hour=0, minute=0, second=0, microsecond=0)
+    t = None
     while True:
-        t = token(q)
+        t = token(q, t)
         if not t:
             break
         if state == S_NONE:
@@ -108,7 +112,7 @@ def parse(query):
                 if d < datetime.datetime.now(tz):
                     d += datetime.timedelta(days=1)
                 state = S_TIME
-                next
+                continue
         if state <= S_TIME:
             if t == "tomorrow":
                 d += datetime.timedelta(days=1)
@@ -118,7 +122,7 @@ def parse(query):
             if m:
                 state |= S_DAY
                 d = d.replace(month=int(m.group(1)), day=int(m.group(2)))
-                next
+                continue
 
             m = re.match(r"({0})".format("|".join(WEEKDAY.keys())), t, re.I)
             if m:
@@ -127,7 +131,7 @@ def parse(query):
                 d += datetime.timedelta(days=1)
                 while d.weekday() != n:
                     d += datetime.timedelta(days=1)
-                next
+                continue
 
         if t == "next" and state & S_WEEKDAY != 0:
             if datetime.datetime.now().weekday() < d.weekday():
@@ -142,6 +146,9 @@ def parse(query):
             elif state & S_WEEKDAY != 0:
                 q["repeatFlag"] = "RRULE:FREQ=WEEKLY;INTERVAL=1"
             break
+        t = None
+        break
+    token(q, t)
     if state != S_NONE:
         u = d.astimezone(UTC())
         q["dueDate"] = "{0}{1:%z}".format(u.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3], u)
