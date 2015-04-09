@@ -190,9 +190,9 @@ def desc(query):
             t = ""
         if "repeatFlag" in q:
             if "WEEKLY" in q["repeatFlag"]:
-                day = u"周{0} {1:%m-%d}".format(week_name(d.weekday()), d)
+                day = u"周{0} 开始于{1:%Y-%m-%d}".format(week_name(d.weekday()), d)
             elif "MONTHLY" in q["repeatFlag"]:
-                day = u"月{0}号".format(d.day)
+                day = u"月{0}号 开始于{1:%Y-%m-%d}".format(d.day, d)
             else:
                 day = u"天"
             title += u" 每" + day + t
