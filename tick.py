@@ -68,6 +68,10 @@ def send(query):
         c = urllib2.urlopen(r)
         c.read()
         c.close()
+    except urllib2.HTTPError as e:
+        if e.code == 401:
+            print "Login first. "
+        return False
     except:
         return False
     return c.code == 200
