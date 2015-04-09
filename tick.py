@@ -122,6 +122,8 @@ def parse(query):
             if m:
                 state |= S_DAY
                 d = d.replace(month=int(m.group(1)), day=int(m.group(2)))
+                if d < datetime.datetime.now(tz):
+                    d = d.replace(year=d.year+1)
                 continue
 
             m = re.match(r"({0})".format("|".join(WEEKDAY.keys())), t, re.I)
@@ -195,7 +197,7 @@ def desc(query):
                 day = u"天"
             title += u" 每" + day + t
         else:
-            day = u" 周{0} {1:%m-%d}".format(week_name(d.weekday()), d)
+            day = u" 周{0} {1:%Y-%m-%d}".format(week_name(d.weekday()), d)
             title += day + t
     i = alfred.Item(arg=query, title=title, subtitle=u"send to ticktick", icon=alfred.Icon("icon.png"))
     print alfred.render([i])
