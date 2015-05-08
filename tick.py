@@ -10,6 +10,7 @@ import random
 import re
 import alfred
 import sys
+import os
 
 BASE_URL = "https://www.dida365.com"
 API_URL = BASE_URL + "/api/v2/task"
@@ -44,6 +45,12 @@ def read_config():
     f.close()
     return d
 
+def write_config(cfg):
+    f = os.fdopen(os.open(CFG, os.O_WRONLY | os.O_CREAT, 0600), "w")
+    for k, v in cfg.iteritems():
+        f.write("{0}={1}\n".format(k, v))
+    f.close()
+
 def generate_request(url, cookie=None):
     r = urllib2.Request(url)
     r.add_header("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.10; rv:36.0) Gecko/20100101 Firefox/36.0")
@@ -60,21 +67,36 @@ def generate_request(url, cookie=None):
 
 def send(query):
     cfg = read_config()
-    item = generate_item(query, cfg["projectId"])
-    r = generate_request(API_URL, cfg["Cookie"])
-    r.add_data(json.dumps(item))
-
-    try:
-        c = urllib2.urlopen(r)
-        c.read()
-        c.close()
-    except urllib2.HTTPError as e:
-        if e.code == 401:
-            print "Login first. "
-        return False
-    except:
-        return False
-    return c.code == 200
+    for _ in xrange(2):
+        if "projectId" not in cfg or "cookie" not in cfg:
+            if "user" in cfg and "pwd" in cfg:
+                data = {"username": cfg["user"], "password": cfg["pwd"]}
+                try:
+                    result = login_request(data)
+                except:
+                    break
+                cfg.update(result)
+                write_config(cfg)
+            else:
+                break
+        item = generate_item(query, cfg["projectId"])
+        r = generate_request(API_URL, cfg["cookie"])
+        r.add_data(json.dumps(item))
+        try:
+            c = urllib2.urlopen(r)
+            c.read()
+            c.close()
+        except urllib2.HTTPError as e:
+            if e.code == 401:
+                del cfg["projectId"]
+                del cfg["cookie"]
+                continue
+            return False
+        except:
+            return False
+        return c.code == 200
+    print "Login first. "
+    return False
 
 def token(q, remove_last):
     if remove_last:
@@ -206,27 +228,26 @@ def desc(query):
     i = alfred.Item(arg=query, title=title, subtitle=u"send to ticktick", icon=alfred.Icon("icon.png"))
     print alfred.render([i])
 
+def login_request(data):
+    r = generate_request(LOGIN_URL)
+    r.add_data(json.dumps(data))
+    rep = urllib2.urlopen(r)
+    c = rep.read()
+    rep.close()
+    m = re.search("(t=\w+);", rep.headers.getheader("Set-Cookie"))
+    result = {"cookie": m.group(1)}
+    data = json.loads(c)
+    result["projectId"] = data["inboxId"]
+    return result
+
 def login(query):
     try:
         user, pwd = query.split(" ", 1)
         data = {"username": user, "password": pwd}
-        r = generate_request(LOGIN_URL)
-        r.add_data(json.dumps(data))
-        rep = urllib2.urlopen(r)
-        c = rep.read()
-        rep.close()
-        m = re.search("(t=\w+);", rep.headers.getheader("Set-Cookie"))
-        cookie = m.group(1)
-        data = json.loads(c)
-        pid = data["inboxId"]
-        f = open(CFG, "w")
-        f.write("Cookie=")
-        f.write(cookie)
-        f.write("\n")
-        f.write("projectId=")
-        f.write(pid)
-        f.write("\n")
-        f.close()
+        cfg = login_request(data)
+        cfg["user"] = user
+        cfg["pwd"] = pwd
+        write_config(cfg)
     except:
         print "Login failed"
         return

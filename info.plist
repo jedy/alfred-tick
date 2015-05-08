@@ -60,12 +60,14 @@
 	<key>disabled</key>
 	<false/>
 	<key>name</key>
-	<string>滴答清单 v1.0</string>
+	<string>滴答清单 v1.3</string>
 	<key>objects</key>
 	<array>
 		<dict>
 			<key>config</key>
 			<dict>
+				<key>concurrently</key>
+				<false/>
 				<key>escaping</key>
 				<integer>64</integer>
 				<key>script</key>
@@ -141,23 +143,6 @@
 		<dict>
 			<key>config</key>
 			<dict>
-				<key>escaping</key>
-				<integer>64</integer>
-				<key>script</key>
-				<string>/usr/bin/python tick.py login '{query}'</string>
-				<key>type</key>
-				<integer>0</integer>
-			</dict>
-			<key>type</key>
-			<string>alfred.workflow.action.script</string>
-			<key>uid</key>
-			<string>45D0B0C9-D4C8-4CBC-A251-1C25F643BA14</string>
-			<key>version</key>
-			<integer>0</integer>
-		</dict>
-		<dict>
-			<key>config</key>
-			<dict>
 				<key>lastpathcomponent</key>
 				<false/>
 				<key>onlyshowifquerypopulated</key>
@@ -198,6 +183,25 @@
 			<string>alfred.workflow.input.keyword</string>
 			<key>uid</key>
 			<string>2701BB9E-9DD0-4435-B2DF-F09A050D90C4</string>
+			<key>version</key>
+			<integer>0</integer>
+		</dict>
+		<dict>
+			<key>config</key>
+			<dict>
+				<key>concurrently</key>
+				<false/>
+				<key>escaping</key>
+				<integer>64</integer>
+				<key>script</key>
+				<string>/usr/bin/python tick.py login '{query}'</string>
+				<key>type</key>
+				<integer>0</integer>
+			</dict>
+			<key>type</key>
+			<string>alfred.workflow.action.script</string>
+			<key>uid</key>
+			<string>45D0B0C9-D4C8-4CBC-A251-1C25F643BA14</string>
 			<key>version</key>
 			<integer>0</integer>
 		</dict>
