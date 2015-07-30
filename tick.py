@@ -140,7 +140,7 @@ def parse(query):
                 state = S_TIME
                 continue
         if state <= S_TIME:
-            if t == "tomorrow":
+            if t == "tomorrow" and d.date() == datetime.date.today():
                 d += datetime.timedelta(days=1)
                 break
 
