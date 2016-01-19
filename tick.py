@@ -140,8 +140,9 @@ def parse(query):
                 state = S_TIME
                 continue
         if state <= S_TIME:
-            if t == "tomorrow" and d.date() == datetime.date.today():
-                d += datetime.timedelta(days=1)
+            if t in ("tomorrow", "tmr"):
+                if d.date() == datetime.date.today():
+                    d += datetime.timedelta(days=1)
                 break
 
             m = re.match(r"(\d{1,2})-(\d{1,2})", t)
