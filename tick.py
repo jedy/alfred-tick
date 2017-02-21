@@ -183,9 +183,9 @@ def parse(query):
         u = d.astimezone(UTC())
         q["dueDate"] = "{0}{1:%z}".format(u.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3], u)
         if state & S_TIME != 0:
-            reminder = u - datetime.timedelta(seconds=300)
+            reminder = u - datetime.timedelta(seconds=60)
             q["remindTime"] = "{0}{1:%z}".format(reminder.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3], reminder)
-            q["reminder"] = "TRIGGER:-PT5M"
+            q["reminder"] = "TRIGGER:-PT1M"
     return q, d, state
 
 def generate_item(query, pid):
