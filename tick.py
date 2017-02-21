@@ -119,7 +119,7 @@ def parse(query):
     q["title"] = query.strip()
     m = re.search("(!+)", q["title"])
     if m:
-        q["priority"] = len(m.group(1))
+        q["priority"] = 2 * len(m.group(1)) - 1
         q["title"] = re.sub("!+", "", q["title"])
 
     state = S_NONE
@@ -210,7 +210,7 @@ def week_name(s):
 
 def desc(query):
     q, d, state = parse(query)
-    title = ("!" * q["priority"]) + q["title"]
+    title = ("!" * ((1 + q["priority"]) / 2)) + q["title"]
     if state != S_NONE:
         if state & S_TIME != 0:
             t = d.strftime(" %H:%M")
