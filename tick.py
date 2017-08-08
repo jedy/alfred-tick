@@ -16,6 +16,7 @@ BASE_URL = "https://www.dida365.com"
 API_URL = BASE_URL + "/api/v2/task"
 LOGIN_URL = BASE_URL + "/api/v2/user/signon?wc=true&remember=true"
 CFG = os.path.expanduser("~/.ticktick")
+DEFAULT_TRIGGER = "TRIGGER:-PT1M"
 
 WEEKDAY = {"mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5, "sun": 6}
 
@@ -65,6 +66,14 @@ def generate_request(url, cookie=None):
         r.add_header("Cookie", cookie)
     return r
 
+def object_id(args=[]):
+    if not args:
+        args.extend([random.randint(0, 16777215), random.randint(0, 32766), random.randint(0, 16777215)])
+    args[1] += 1
+    if args[2] > 16777215:
+        args[2] = 0
+    return "{:08x}{:06x}{:04x}{:06x}".format(int(time.time()), args[0], args[1], args[2])
+
 def send(query):
     cfg = read_config()
     for _ in xrange(2):
@@ -92,7 +101,7 @@ def send(query):
                 del cfg["cookie"]
                 continue
             return False
-        except:
+        except Exception as e:
             return False
         return c.code == 200
     print "Login first. "
@@ -114,7 +123,9 @@ def parse(query):
         "title": None,
         "priority": 0,
         "dueDate": None,
+        "startDate": None,
         "reminder": "",
+        "reminders": [],
     }
     q["title"] = query.strip()
     m = re.search("(!+)", q["title"])
@@ -181,27 +192,25 @@ def parse(query):
     token(q, t)
     if state != S_NONE:
         u = d.astimezone(UTC())
-        q["dueDate"] = "{0}{1:%z}".format(u.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3], u)
+        q["startDate"] = q["dueDate"] = "{0}{1:%z}".format(u.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3], u)
         if state & S_TIME != 0:
-            reminder = u - datetime.timedelta(seconds=60)
-            q["remindTime"] = "{0}{1:%z}".format(reminder.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3], reminder)
-            q["reminder"] = "TRIGGER:-PT1M"
+            q["reminder"] = DEFAULT_TRIGGER
+            q["reminders"].append({"id": object_id(), "trigger": DEFAULT_TRIGGER})
     return q, d, state
 
 def generate_item(query, pid):
-    item, d, state = parse(query)
-    tz = tzlocal.get_localzone()
-    t = time.time()
-    n = datetime.datetime.fromtimestamp(t, tz)
+    item, _, state = parse(query)
+    n = datetime.datetime.now().utcnow()
 
-    item["modifiedTime"] = "{0}{1:%z}".format(n.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3], n)
-    item["id"] = "{0:08x}20ead6{1:04x}{2:06x}".format(int(t), int(32767 * random.random()), int(16777216 * random.random()))
+    item["modifiedTime"] = n.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "+0000"
+    item["id"] = object_id()
     item["status"] = 0
-    item["timeZone"] = tz.zone
+    item["timeZone"] = tzlocal.get_localzone().zone
     item["content"] = ""
     item["sortOrder"] = 0
     item["items"] = []
-    item["local"] = True
+    item["progress"] = 0
+    item["isAllDay"] = False
     item["projectId"] = pid
     return item
 
