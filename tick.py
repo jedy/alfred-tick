@@ -210,7 +210,10 @@ def generate_item(query, pid):
     item["sortOrder"] = 0
     item["items"] = []
     item["progress"] = 0
-    item["isAllDay"] = False
+    if state == S_NONE:
+        item["isAllDay"] = None
+    else:
+        item["isAllDay"] = (state & S_TIME == 0)
     item["projectId"] = pid
     return item
 
