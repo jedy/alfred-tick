@@ -17,6 +17,8 @@
 				<integer>0</integer>
 				<key>modifiersubtext</key>
 				<string></string>
+				<key>vitoclose</key>
+				<false/>
 			</dict>
 		</array>
 		<key>45D0B0C9-D4C8-4CBC-A251-1C25F643BA14</key>
@@ -28,6 +30,8 @@
 				<integer>0</integer>
 				<key>modifiersubtext</key>
 				<string></string>
+				<key>vitoclose</key>
+				<false/>
 			</dict>
 		</array>
 		<key>5034F630-C7DA-4514-9B9E-8ECE1BFD7870</key>
@@ -39,6 +43,8 @@
 				<integer>0</integer>
 				<key>modifiersubtext</key>
 				<string></string>
+				<key>vitoclose</key>
+				<false/>
 			</dict>
 		</array>
 		<key>834A4840-DB9D-4D5C-A9F8-16676E611CB8</key>
@@ -50,17 +56,19 @@
 				<integer>0</integer>
 				<key>modifiersubtext</key>
 				<string></string>
+				<key>vitoclose</key>
+				<false/>
 			</dict>
 		</array>
 	</dict>
 	<key>createdby</key>
 	<string>Jedy Wu</string>
 	<key>description</key>
-	<string>增加任务到滴答清单</string>
+	<string>add task to ticktick</string>
 	<key>disabled</key>
 	<false/>
 	<key>name</key>
-	<string>滴答清单 v1.3</string>
+	<string>Ticktick v1.6</string>
 	<key>objects</key>
 	<array>
 		<dict>
@@ -72,6 +80,10 @@
 				<integer>64</integer>
 				<key>script</key>
 				<string>/usr/bin/python tick.py '{query}'</string>
+				<key>scriptargtype</key>
+				<integer>0</integer>
+				<key>scriptfile</key>
+				<string></string>
 				<key>type</key>
 				<integer>0</integer>
 			</dict>
@@ -80,11 +92,17 @@
 			<key>uid</key>
 			<string>834A4840-DB9D-4D5C-A9F8-16676E611CB8</string>
 			<key>version</key>
-			<integer>0</integer>
+			<integer>2</integer>
 		</dict>
 		<dict>
 			<key>config</key>
 			<dict>
+				<key>alfredfiltersresults</key>
+				<false/>
+				<key>alfredfiltersresultsmatchmode</key>
+				<integer>0</integer>
+				<key>argumenttrimmode</key>
+				<integer>0</integer>
 				<key>argumenttype</key>
 				<integer>0</integer>
 				<key>escaping</key>
@@ -99,10 +117,18 @@
 				<integer>0</integer>
 				<key>queuemode</key>
 				<integer>1</integer>
+				<key>runningsubtext</key>
+				<string></string>
 				<key>script</key>
 				<string>/usr/bin/python tick.py parse '{query}'</string>
+				<key>scriptargtype</key>
+				<integer>0</integer>
+				<key>scriptfile</key>
+				<string></string>
+				<key>subtext</key>
+				<string></string>
 				<key>title</key>
-				<string>输入任务</string>
+				<string>input task</string>
 				<key>type</key>
 				<integer>0</integer>
 				<key>withspace</key>
@@ -113,7 +139,7 @@
 			<key>uid</key>
 			<string>5034F630-C7DA-4514-9B9E-8ECE1BFD7870</string>
 			<key>version</key>
-			<integer>0</integer>
+			<integer>2</integer>
 		</dict>
 		<dict>
 			<key>config</key>
@@ -122,23 +148,19 @@
 				<false/>
 				<key>onlyshowifquerypopulated</key>
 				<true/>
-				<key>output</key>
-				<integer>0</integer>
 				<key>removeextension</key>
 				<false/>
-				<key>sticky</key>
-				<false/>
 				<key>text</key>
-				<string>增加任务 {query}</string>
+				<string>add {query}</string>
 				<key>title</key>
-				<string>滴答清单</string>
+				<string>Ticktick</string>
 			</dict>
 			<key>type</key>
 			<string>alfred.workflow.output.notification</string>
 			<key>uid</key>
 			<string>AD57DFFB-0AFF-4D8E-ACA2-74F1B09622CE</string>
 			<key>version</key>
-			<integer>0</integer>
+			<integer>1</integer>
 		</dict>
 		<dict>
 			<key>config</key>
@@ -147,23 +169,19 @@
 				<false/>
 				<key>onlyshowifquerypopulated</key>
 				<false/>
-				<key>output</key>
-				<integer>0</integer>
 				<key>removeextension</key>
-				<false/>
-				<key>sticky</key>
 				<false/>
 				<key>text</key>
 				<string>{query}</string>
 				<key>title</key>
-				<string>滴答清单登陆</string>
+				<string>Ticktick login</string>
 			</dict>
 			<key>type</key>
 			<string>alfred.workflow.output.notification</string>
 			<key>uid</key>
 			<string>EA561EF4-CDB0-4123-BD93-6BF7DE250211</string>
 			<key>version</key>
-			<integer>0</integer>
+			<integer>1</integer>
 		</dict>
 		<dict>
 			<key>config</key>
@@ -173,9 +191,9 @@
 				<key>keyword</key>
 				<string>tick_login</string>
 				<key>subtext</key>
-				<string>输入邮箱&lt;空格&gt;密码</string>
+				<string>input email &lt;space&gt; password</string>
 				<key>text</key>
-				<string>登陆滴答清单</string>
+				<string>login ticktick</string>
 				<key>withspace</key>
 				<true/>
 			</dict>
@@ -184,7 +202,7 @@
 			<key>uid</key>
 			<string>2701BB9E-9DD0-4435-B2DF-F09A050D90C4</string>
 			<key>version</key>
-			<integer>0</integer>
+			<integer>1</integer>
 		</dict>
 		<dict>
 			<key>config</key>
@@ -195,6 +213,10 @@
 				<integer>64</integer>
 				<key>script</key>
 				<string>/usr/bin/python tick.py login '{query}'</string>
+				<key>scriptargtype</key>
+				<integer>0</integer>
+				<key>scriptfile</key>
+				<string></string>
 				<key>type</key>
 				<integer>0</integer>
 			</dict>
@@ -203,7 +225,7 @@
 			<key>uid</key>
 			<string>45D0B0C9-D4C8-4CBC-A251-1C25F643BA14</string>
 			<key>version</key>
-			<integer>0</integer>
+			<integer>2</integer>
 		</dict>
 	</array>
 	<key>readme</key>
@@ -212,31 +234,43 @@
 	<dict>
 		<key>2701BB9E-9DD0-4435-B2DF-F09A050D90C4</key>
 		<dict>
+			<key>xpos</key>
+			<integer>300</integer>
 			<key>ypos</key>
 			<real>130</real>
 		</dict>
 		<key>45D0B0C9-D4C8-4CBC-A251-1C25F643BA14</key>
 		<dict>
+			<key>xpos</key>
+			<integer>500</integer>
 			<key>ypos</key>
 			<real>130</real>
 		</dict>
 		<key>5034F630-C7DA-4514-9B9E-8ECE1BFD7870</key>
 		<dict>
+			<key>xpos</key>
+			<integer>300</integer>
 			<key>ypos</key>
 			<real>10</real>
 		</dict>
 		<key>834A4840-DB9D-4D5C-A9F8-16676E611CB8</key>
 		<dict>
+			<key>xpos</key>
+			<integer>500</integer>
 			<key>ypos</key>
 			<real>10</real>
 		</dict>
 		<key>AD57DFFB-0AFF-4D8E-ACA2-74F1B09622CE</key>
 		<dict>
+			<key>xpos</key>
+			<integer>700</integer>
 			<key>ypos</key>
 			<real>10</real>
 		</dict>
 		<key>EA561EF4-CDB0-4123-BD93-6BF7DE250211</key>
 		<dict>
+			<key>xpos</key>
+			<integer>700</integer>
 			<key>ypos</key>
 			<real>130</real>
 		</dict>
