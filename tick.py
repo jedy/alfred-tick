@@ -17,8 +17,30 @@ API_URL = BASE_URL + "/api/v2/task"
 LOGIN_URL = BASE_URL + "/api/v2/user/signon?wc=true&remember=true"
 CFG = os.path.expanduser("~/.ticktick")
 DEFAULT_TRIGGER = "TRIGGER:-PT1M"
+LANG = "CN"
 
 WEEKDAY = {"mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5, "sun": 6}
+
+MSG = {
+    "CN": {
+        "week": [u"一", u"二", u"三", u"四", u"五", u"六", u"日"],
+        "weekday-from": u"每周{w} 开始于{d:%Y-%m-%d}",
+        "monthday-from": u"每月{m}号 开始于{d:%Y-%m-%d}",
+        "everyday": u"每天",
+        "weekday": u"周{w} {d:%Y-%m-%d}",
+    },
+    "EN": {
+        "week": [u"Monday", u"Tuesday", u"Wednesday", u"Thursday", u"Friday", u"Saturday", u"Sunday"],
+        "weekday-from": u"every {w} from {d:%Y-%m-%d}",
+        "monthday-from": u"every {m} from {d:%Y-%m-%d}",
+        "monthday": [u"1st", u"2nd", u"3rd", u"4th", u"5th", u"6th", u"7th", u"8th", u"9th", u"10th",
+                     u"11th", u"12th", u"13th", u"14th", u"15th", u"16th", u"17th", u"18th", u"19th", u"20th",
+                     u"21st", u"22nd", u"23rd", u"24th", u"25th", u"26th", u"27th", u"28th", u"29th", u"30th",
+                     u"31st"],
+        "everyday": u"everyday",
+        "weekday": u"{w} {d:%Y-%m-%d}",
+    }
+}
 
 S_NONE = 0
 S_TIME = 1
@@ -56,7 +78,7 @@ def generate_request(url, cookie=None):
     r = urllib2.Request(url)
     r.add_header("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.10; rv:36.0) Gecko/20100101 Firefox/36.0")
     r.add_header("Accept-Language", "zh-CN,en-US;q=0.7,en;q=0.3")
-    r.add_header("Referer", "https://www.dida365.com/")
+    r.add_header("Referer", BASE_URL)
     r.add_header("DNT", "1")
     r.add_header("Accept", "application/json, text/javascript, */*; q=0.01")
     r.add_header("Content-Type", "application/json; charset=UTF-8")
@@ -127,11 +149,12 @@ def parse(query):
         "reminder": "",
         "reminders": [],
     }
-    q["title"] = query.strip()
+    q["title"] = query
     m = re.search("(!+)", q["title"])
     if m:
         q["priority"] = 2 * len(m.group(1)) - 1
         q["title"] = re.sub("!+", "", q["title"])
+    q["title"] = q["title"].strip()
 
     state = S_NONE
     tz = tzlocal.get_localzone()
@@ -165,7 +188,7 @@ def parse(query):
                     d = d.replace(year=d.year+1)
                 continue
 
-            m = re.match(r"({0})".format("|".join(WEEKDAY.keys())), t, re.I)
+            m = re.match(r"\b({0})\b".format("|".join(WEEKDAY.keys())), t, re.I)
             if m:
                 state |= S_WEEKDAY
                 n = WEEKDAY[m.group(1)]
@@ -218,7 +241,13 @@ def generate_item(query, pid):
     return item
 
 def week_name(s):
-    return u"一二三四五六日"[s]
+    return MSG[LANG]["week"][s]
+
+def month_day_name(s):
+    if LANG == "CN":
+        return u"{0}".format(s)
+    else:
+        return MSG[LANG]["monthday"][s-1]
 
 def desc(query):
     q, d, state = parse(query)
@@ -230,15 +259,14 @@ def desc(query):
             t = ""
         if "repeatFlag" in q:
             if "WEEKLY" in q["repeatFlag"]:
-                day = u"周{0} 开始于{1:%Y-%m-%d}".format(week_name(d.weekday()), d)
+                day = MSG[LANG]["weekday-from"].format(w=week_name(d.weekday()), d=d)
             elif "MONTHLY" in q["repeatFlag"]:
-                day = u"月{0}号 开始于{1:%Y-%m-%d}".format(d.day, d)
+                day = MSG[LANG]["monthday-from"].format(m=month_day_name(d.day), d=d)
             else:
-                day = u"天"
-            title += u" 每" + day + t
+                day = MSG[LANG]["everyday"]
         else:
-            day = u" 周{0} {1:%Y-%m-%d}".format(week_name(d.weekday()), d)
-            title += day + t
+            day = MSG[LANG]["weekday"].format(w=week_name(d.weekday()), d=d)
+        title += u" " + day + t
     i = alfred.Item(arg=query, title=title, subtitle=u"send to ticktick", icon=alfred.Icon("icon.png"))
     print alfred.render([i])
 
