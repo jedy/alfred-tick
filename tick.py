@@ -11,12 +11,12 @@ import re
 import sys
 import os
 
-BASE_URL = "https://www.dida365.com"
+BASE_URL = "https://www.ticktick.com"
 API_URL = BASE_URL + "/api/v2/task"
 LOGIN_URL = BASE_URL + "/api/v2/user/signon?wc=true&remember=true"
 CFG = os.path.expanduser("~/.ticktick")
 DEFAULT_TRIGGER = "TRIGGER:-PT1M"
-LANG = "CN"
+LANG = "EN"
 
 WEEKDAY = {"mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5, "sun": 6}
 
