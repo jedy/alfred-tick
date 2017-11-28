@@ -8,7 +8,6 @@ import urllib2
 import os.path
 import random
 import re
-import alfred
 import sys
 import os
 
@@ -267,8 +266,18 @@ def desc(query):
         else:
             day = MSG[LANG]["weekday"].format(w=week_name(d.weekday()), d=d)
         title += u" " + day + t
-    i = alfred.Item(arg=query, title=title, subtitle=u"send to ticktick", icon=alfred.Icon("icon.png"))
-    print alfred.render([i])
+    print_item(query, title)
+
+def print_item(arg, title):
+    print u"""<?xml version='1.0' encoding='ASCII'?>
+<items>
+  <item valid="yes" arg="{arg}">
+    <title>{title}</title>
+    <subtitle>send to ticktick</subtitle>
+    <icon>icon.png</icon>
+  </item>
+</items>
+""".format(arg=arg.encode('ascii', 'xmlcharrefreplace'), title=title.encode('ascii', 'xmlcharrefreplace'))
 
 def login_request(data):
     r = generate_request(LOGIN_URL)
