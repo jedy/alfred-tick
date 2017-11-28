@@ -34,15 +34,15 @@ However, since I don't have account of ticktick to test, it may not work correct
 
 ### Install
 
-    * install python package
-        * `pip install tzlocal`
-    * import tick.alfredworkflow
-    * input "tick_login username <space> password" in alfred to login. Cookie and inbox id will be saved in ~/.ticktick.
+   * install python package
+       * `pip install tzlocal`
+   * import tick.alfredworkflow
+   * input "tick_login username <space> password" in alfred to login. Cookie and inbox id will be saved in ~/.ticktick.
 
 ### Usage
 
-    * input "tick task [date] [time]", `date` and `time` can be omitted
-    * date supports following formats:
+   * input "tick task [date] [time]", `date` and `time` can be omitted
+   * date supports following formats:
        - tomorrow|tmr
        - mon|tue|wed|thu|fri|sat|sun
        - every mon|tue|wed|thu|fri|sat|sun，repeat every week
@@ -50,4 +50,4 @@ However, since I don't have account of ticktick to test, it may not work correct
        - month-day
        - every month-day, repeat every month
        - every，repeat everyday
-    * time should be inputed as "hour:minute"
+   * time should be inputed as "hour:minute"
