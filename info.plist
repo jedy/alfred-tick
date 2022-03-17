@@ -66,7 +66,7 @@
 	<key>disabled</key>
 	<false/>
 	<key>name</key>
-	<string>滴答清单 v1.6</string>
+	<string>滴答清单 v1.7</string>
 	<key>objects</key>
 	<array>
 		<dict>
@@ -77,7 +77,7 @@
 				<key>escaping</key>
 				<integer>64</integer>
 				<key>script</key>
-				<string>/usr/bin/python tick.py '{query}'</string>
+				<string>/usr/bin/python3 tick.py '{query}'</string>
 				<key>scriptargtype</key>
 				<integer>0</integer>
 				<key>scriptfile</key>
@@ -99,6 +99,8 @@
 				<false/>
 				<key>alfredfiltersresultsmatchmode</key>
 				<integer>0</integer>
+				<key>argumenttreatemptyqueryasnil</key>
+				<false/>
 				<key>argumenttrimmode</key>
 				<integer>0</integer>
 				<key>argumenttype</key>
@@ -118,7 +120,7 @@
 				<key>runningsubtext</key>
 				<string></string>
 				<key>script</key>
-				<string>/usr/bin/python tick.py parse '{query}'</string>
+				<string>/usr/bin/python3 tick.py parse '{query}'</string>
 				<key>scriptargtype</key>
 				<integer>0</integer>
 				<key>scriptfile</key>
@@ -137,7 +139,7 @@
 			<key>uid</key>
 			<string>5034F630-C7DA-4514-9B9E-8ECE1BFD7870</string>
 			<key>version</key>
-			<integer>2</integer>
+			<integer>3</integer>
 		</dict>
 		<dict>
 			<key>config</key>
@@ -210,7 +212,7 @@
 				<key>escaping</key>
 				<integer>64</integer>
 				<key>script</key>
-				<string>/usr/bin/python tick.py login '{query}'</string>
+				<string>/usr/bin/python3 tick.py login '{query}'</string>
 				<key>scriptargtype</key>
 				<integer>0</integer>
 				<key>scriptfile</key>
@@ -273,6 +275,10 @@
 			<real>130</real>
 		</dict>
 	</dict>
+	<key>variablesdontexport</key>
+	<array/>
+	<key>version</key>
+	<string>1.7</string>
 	<key>webaddress</key>
 	<string>https://github.com/jedy/alfred-tick</string>
 </dict>
