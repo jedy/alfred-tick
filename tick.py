@@ -100,8 +100,8 @@ def read_config():
 
 def write_config(cfg):
     f = os.fdopen(os.open(CFG, os.O_WRONLY | os.O_CREAT, 0o600), "w")
-    for k, v in cfg.iteritems():
-        f.write("{0}={1}\n".format(k, v))
+    for k, v in cfg.items():
+        f.write(f"{k}={v}\n")
     f.close()
 
 
@@ -322,11 +322,22 @@ def login_request(data):
     r = generate_request(LOGIN_URL)
     r.data = json.dumps(data).encode("utf-8")
     rep = urllib.request.urlopen(r)
-    c = rep.read()
+    content = rep.read()
     rep.close()
-    m = re.search(r"(t=\w+);", rep.headers.getheader("Set-Cookie"))
-    result = {"cookie": m.group(1)}
-    data = json.loads(c)
+    data = json.loads(content)
+    token = data.get('token', None)
+    if token:
+        token = "t=" + token
+    else:
+        cookies = rep.headers.get_all("Set-Cookie")
+        for c in cookies:
+            m = re.search(r"(t=\w+);", c)
+            if m:
+                break
+        else:
+            raise Exception("can't get token cookie")
+        token = m.group(1)
+    result = {"cookie": token}
     result["projectId"] = data["inboxId"]
     return result
 
