@@ -10,7 +10,9 @@ import sys
 import os
 import urllib.request
 import urllib.error
+import traceback
 
+DEBUG = os.environ.get("alfred_debug", False)
 BASE_URL = "https://www.dida365.com"
 API_URL = BASE_URL + "/api/v2/task"
 LOGIN_URL = BASE_URL + "/api/v2/user/signon?wc=true&remember=true"
@@ -350,7 +352,9 @@ def login(query):
         cfg["user"] = user
         cfg["pwd"] = pwd
         write_config(cfg)
-    except:
+    except Exception as e:
+        if DEBUG:
+            traceback.print_exc()
         print("Login failed")
         return
     print("Login done")
