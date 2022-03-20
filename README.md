@@ -1,5 +1,7 @@
 ### 说明
 
+**从macOS 12.3 Monterey开始，系统不再提供python 2了，所以升级为使用python 3。老版本的mac请使用1.6。**
+
 脚本使用的python，测试的环境是2.7，其他的版本没试过。
 适用于中文版的[滴答清单](https://www.dida365.com), 英文版应该也可以，需要把tick.py中的url改成英文版的。
 
@@ -26,6 +28,8 @@
    * 时间支持"hour:minute"的形式
 
 ### Description
+
+**From macOS 12.3 Monterey, system doesn't include python 2, so it's upgraded to python 3。Please use 1.6 on old versions of mac.**
 
 This workflow uses python 2.7. Haven't tested in other version.
 It's for [滴答清单](https://www.dida365.com). 
