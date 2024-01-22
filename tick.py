@@ -78,15 +78,37 @@ S_DAY = 2
 S_WEEKDAY = 4
 
 
-class UTC(datetime.tzinfo):
-    def utcoffset(self, dt):
-        return datetime.timedelta(0)
+class LocalTimezone(datetime.tzinfo):
+    STDOFFSET = datetime.timedelta(seconds=-time.timezone)
+    if time.daylight:
+        DSTOFFSET = time.timedelta(seconds=-time.altzone)
+    else:
+        DSTOFFSET = STDOFFSET
 
-    def tzname(self, dt):
-        return "UTC"
+    DSTDIFF = DSTOFFSET - STDOFFSET
+
+    def utcoffset(self, dt):
+        if self._isdst(dt):
+            return self.DSTOFFSET
+        else:
+            return self.STDOFFSET
 
     def dst(self, dt):
-        return datetime.timedelta(0)
+        if self._isdst(dt):
+            return self.DSTDIFF
+        else:
+            return datetime.timedelta(0)
+
+    def tzname(self, dt):
+        return time.tzname[self._isdst(dt)]
+
+    def _isdst(self, dt):
+        tt = (dt.year, dt.month, dt.day,
+              dt.hour, dt.minute, dt.second,
+              dt.weekday(), 0, -1)
+        stamp = time.mktime(tt)
+        tt = time.localtime(stamp)
+        return tt.tm_isdst > 0
 
 
 def read_config():
@@ -187,8 +209,8 @@ def parse(query):
     q["title"] = q["title"].strip()
 
     state = S_NONE
-    d = datetime.datetime.now()
-    d = d.replace(hour=0, minute=0, second=0, microsecond=0)
+    now = datetime.datetime.now(tz=LocalTimezone())
+    d = now.replace(hour=0, minute=0, second=0, microsecond=0)
     t = None
     while True:
         t = token(q, t)
@@ -198,14 +220,14 @@ def parse(query):
             m = re.match(r"(\d{1,2}):(\d{1,2})", t)
             if m:
                 d = d.replace(hour=int(m.group(1)), minute=int(m.group(2)))
-                if d < datetime.datetime.now():
+                if d < now:
                     d += datetime.timedelta(days=1)
                 state = S_TIME
                 continue
         if state <= S_TIME:
             if t in ("tomorrow", "tmr"):
                 state |= S_DAY
-                if d.date() == datetime.date.today():
+                if d.date() == now.date():
                     d += datetime.timedelta(days=1)
                 break
 
@@ -213,7 +235,7 @@ def parse(query):
             if m:
                 state |= S_DAY
                 d = d.replace(month=int(m.group(1)), day=int(m.group(2)))
-                if d < datetime.datetime.now():
+                if d < now:
                     d = d.replace(year=d.year + 1)
                 continue
 
@@ -227,7 +249,7 @@ def parse(query):
                 continue
 
         if t == "next" and state & S_WEEKDAY != 0:
-            if datetime.datetime.now().weekday() < d.weekday():
+            if now.weekday() < d.weekday():
                 d += datetime.timedelta(days=7)
             break
 
@@ -243,22 +265,23 @@ def parse(query):
         break
     token(q, t)
     if state != S_NONE:
-        u = d.astimezone(UTC())
-        q["startDate"] = q["dueDate"] = "{0}{1:%z}".format(u.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3], u)
         if state & S_TIME != 0:
+            q["startDate"] = q["dueDate"] = d.strftime("%Y-%m-%dT%H:%M:%S.000%z")
             q["reminder"] = DEFAULT_TRIGGER
             q["reminders"].append({"id": object_id(), "trigger": DEFAULT_TRIGGER})
+        else:
+            q["startDate"] = q["dueDate"] = d.strftime("%Y-%m-%dT%H:%M:%S.000+0000")
     return q, d, state
 
 
 def generate_item(query, pid):
     item, _, state = parse(query)
-    n = datetime.datetime.utcnow()
+    n = datetime.datetime.now(tz=LocalTimezone())
 
-    item["modifiedTime"] = n.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "+0000"
+    item["modifiedTime"] = n.strftime("%Y-%m-%dT%H:%M:%S.000%z")
     item["id"] = object_id()
     item["status"] = 0
-    item["timeZone"] = 'CST'
+    item["timeZone"] = n.tzname()
     item["content"] = ""
     item["sortOrder"] = 0
     item["items"] = []
