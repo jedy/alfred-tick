@@ -1,5 +1,4 @@
 #!/usr/bin/python3
-#! -*- coding: utf8 -*-
 import json
 import datetime
 import time
@@ -78,6 +77,44 @@ S_DAY = 2
 S_WEEKDAY = 4
 
 
+# Encryption key (can be customized)
+ENCRYPTION_KEY = 0xA5
+
+
+def encrypt_password(pwd):
+    """Simple XOR and bit-shift encryption for password"""
+    if not pwd:
+        return ""
+    encrypted = []
+    for i, char in enumerate(pwd):
+        # XOR with key, then shift left by (i % 8) positions
+        val = ord(char) ^ ENCRYPTION_KEY
+        val = ((val << (i % 8)) | (val >> (8 - (i % 8)))) & 0xFF
+        encrypted.append(val)
+    # Convert to hex string for storage
+    return "".join("{:02x}".format(b) for b in encrypted)
+
+
+def decrypt_password(encrypted_pwd):
+    """Decrypt the password using reverse operations"""
+    if not encrypted_pwd:
+        return ""
+    try:
+        # Convert hex string back to bytes
+        encrypted_bytes = [int(encrypted_pwd[i : i + 2], 16) for i in range(0, len(encrypted_pwd), 2)]
+        decrypted = []
+        for i, val in enumerate(encrypted_bytes):
+            # Reverse shift: shift right by (i % 8) positions
+            val = ((val >> (i % 8)) | (val << (8 - (i % 8)))) & 0xFF
+            # Reverse XOR
+            char = chr(val ^ ENCRYPTION_KEY)
+            decrypted.append(char)
+        return "".join(decrypted)
+    except Exception:
+        # If decryption fails, return as-is (might be plain text from old format)
+        return encrypted_pwd
+
+
 class LocalTimezone(datetime.tzinfo):
     STDOFFSET = datetime.timedelta(seconds=-time.timezone)
     if time.daylight:
@@ -103,9 +140,7 @@ class LocalTimezone(datetime.tzinfo):
         return time.tzname[self._isdst(dt)]
 
     def _isdst(self, dt):
-        tt = (dt.year, dt.month, dt.day,
-              dt.hour, dt.minute, dt.second,
-              dt.weekday(), 0, -1)
+        tt = (dt.year, dt.month, dt.day, dt.hour, dt.minute, dt.second, dt.weekday(), 0, -1)
         stamp = time.mktime(tt)
         tt = time.localtime(stamp)
         return tt.tm_isdst > 0
@@ -119,12 +154,18 @@ def read_config():
         if p:
             d[p[0]] = p[1]
     f.close()
+    # Decrypt password if it exists
+    if "pwd" in d:
+        d["pwd"] = decrypt_password(d["pwd"])
     return d
 
 
 def write_config(cfg):
     f = os.fdopen(os.open(CFG, os.O_WRONLY | os.O_CREAT, 0o600), "w")
     for k, v in cfg.items():
+        # Encrypt password before writing
+        if k == "pwd":
+            v = encrypt_password(v)
         f.write(f"{k}={v}\n")
     f.close()
 
@@ -161,7 +202,7 @@ def send(query):
                 data = {"username": cfg["user"], "password": cfg["pwd"]}
                 try:
                     result = login_request(data)
-                except:
+                except Exception:
                     break
                 cfg.update(result)
                 write_config(cfg)
@@ -180,7 +221,7 @@ def send(query):
                 del cfg["cookie"]
                 continue
             return False
-        except Exception as e:
+        except Exception:
             return False
         return c.code == 200
     print("Login first. ")
@@ -336,10 +377,7 @@ def print_item(arg, title):
     <icon>icon.png</icon>
   </item>
 </items>
-""".format(
-            arg=arg,
-            title=title
-        )
+""".format(arg=arg, title=title)
     )
 
 
@@ -350,7 +388,7 @@ def login_request(data):
     content = rep.read()
     rep.close()
     data = json.loads(content)
-    token = data.get('token', None)
+    token = data.get("token", None)
     if token:
         token = "t=" + token
     else:
@@ -375,7 +413,7 @@ def login(query):
         cfg["user"] = user
         cfg["pwd"] = pwd
         write_config(cfg)
-    except Exception as e:
+    except Exception:
         if DEBUG:
             traceback.print_exc()
         print("Login failed")
