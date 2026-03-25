@@ -12,9 +12,9 @@ import urllib.error
 import traceback
 
 DEBUG = os.environ.get("alfred_debug", False)
-BASE_URL = "https://www.dida365.com"
-API_URL = BASE_URL + "/api/v2/task"
-LOGIN_URL = BASE_URL + "/api/v2/user/signon?wc=true&remember=true"
+BASE_URL = "https://dida365.com"
+API_URL = BASE_URL.replace("://", "://api.") + "/api/v2/task"
+LOGIN_URL = BASE_URL.replace("://", "://api.") + "/api/v2/user/signon?wc=true&remember=true"
 CFG = os.path.expanduser("~/.ticktick")
 DEFAULT_TRIGGER = "TRIGGER:-PT1M"
 LANG = "CN"
@@ -172,14 +172,22 @@ def write_config(cfg):
 
 def generate_request(url, cookie=None):
     r = urllib.request.Request(url)
-    r.add_header("User-Agent", "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.10; rv:36.0) Gecko/20100101 Firefox/36.0")
+    r.add_header(
+        "User-Agent",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
+    )
     r.add_header("Accept-Language", "zh-CN,en-US;q=0.7,en;q=0.3")
     r.add_header("Referer", BASE_URL)
+    r.add_header("Origin", BASE_URL)
     r.add_header("DNT", "1")
     r.add_header("Accept", "application/json, text/javascript, */*; q=0.01")
     r.add_header("Content-Type", "application/json; charset=UTF-8")
     r.add_header("X-Requested-With", "XMLHttpRequest")
     r.add_header("Accept-Encoding", "deflate")
+    r.add_header(
+        "x-device",
+        f'{{"platform":"web","os":"macOS 10.15.7","device":"Chrome 146.0.0.0","name":"","version":8040,"id":"{object_id()}","channel":"website","campaign":"","websocket":""}}',
+    )
     if cookie:
         r.add_header("Cookie", cookie)
     return r
