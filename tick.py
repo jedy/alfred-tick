@@ -3,18 +3,19 @@ import json
 import datetime
 import time
 import os.path
-import random
 import re
 import sys
 import os
 import urllib.request
 import urllib.error
-import traceback
+import tempfile
+import http.client
+from xml.sax.saxutils import escape, quoteattr
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-DEBUG = os.environ.get("alfred_debug", False)
-BASE_URL = "https://dida365.com"
-API_URL = BASE_URL.replace("://", "://api.") + "/api/v2/task"
-LOGIN_URL = BASE_URL.replace("://", "://api.") + "/api/v2/user/signon?wc=true&remember=true"
+MCP_URL = "https://mcp.dida365.com"
+VERSION = "1.11"
+AUTH_HINT = "请使用 tick_auth <token> 重新授权。"
 CFG = os.path.expanduser("~/.ticktick")
 DEFAULT_TRIGGER = "TRIGGER:-PT1M"
 LANG = "CN"
@@ -77,48 +78,51 @@ S_DAY = 2
 S_WEEKDAY = 4
 
 
-# Encryption key (can be customized)
+# Reversible obfuscation only; this is not cryptographic protection.
 ENCRYPTION_KEY = 0xA5
+CONFIG_VERSION = 1
 
 
-def encrypt_password(pwd):
-    """Simple XOR and bit-shift encryption for password"""
-    if not pwd:
-        return ""
+class TickError(Exception):
+    """A safe, user-facing error; never include credentials or server bodies."""
+
+
+def validate_token(value):
+    if not isinstance(value, str) or not re.fullmatch(r"[A-Za-z0-9._~+/-]+=*", value):
+        raise TickError("API 口令格式无效。" + AUTH_HINT)
+    return value
+
+
+def encrypt_token(value):
+    raw = ("dida-token:" + validate_token(value)).encode("ascii")
     encrypted = []
-    for i, char in enumerate(pwd):
-        # XOR with key, then shift left by (i % 8) positions
-        val = ord(char) ^ ENCRYPTION_KEY
-        val = ((val << (i % 8)) | (val >> (8 - (i % 8)))) & 0xFF
-        encrypted.append(val)
-    # Convert to hex string for storage
-    return "".join("{:02x}".format(b) for b in encrypted)
+    for i, byte in enumerate(raw):
+        val = byte ^ ENCRYPTION_KEY
+        shift = i % 8
+        encrypted.append(((val << shift) | (val >> (8 - shift))) & 0xFF)
+    return bytes(encrypted).hex()
 
 
-def decrypt_password(encrypted_pwd):
-    """Decrypt the password using reverse operations"""
-    if not encrypted_pwd:
-        return ""
+def decrypt_token(value):
     try:
-        # Convert hex string back to bytes
-        encrypted_bytes = [int(encrypted_pwd[i : i + 2], 16) for i in range(0, len(encrypted_pwd), 2)]
-        decrypted = []
-        for i, val in enumerate(encrypted_bytes):
-            # Reverse shift: shift right by (i % 8) positions
-            val = ((val >> (i % 8)) | (val << (8 - (i % 8)))) & 0xFF
-            # Reverse XOR
-            char = chr(val ^ ENCRYPTION_KEY)
-            decrypted.append(char)
-        return "".join(decrypted)
-    except Exception:
-        # If decryption fails, return as-is (might be plain text from old format)
-        return encrypted_pwd
+        if not isinstance(value, str) or not re.fullmatch(r"(?:[0-9a-f]{2})+", value):
+            raise ValueError()
+        decrypted = bytearray()
+        for i, val in enumerate(bytes.fromhex(value)):
+            shift = i % 8
+            decrypted.append((((val >> shift) | (val << (8 - shift))) & 0xFF) ^ ENCRYPTION_KEY)
+        plain = decrypted.decode("ascii")
+        if not plain.startswith("dida-token:"):
+            raise ValueError()
+        return validate_token(plain[len("dida-token:") :])
+    except (ValueError, UnicodeError, TickError):
+        raise TickError("授权配置损坏。" + AUTH_HINT) from None
 
 
 class LocalTimezone(datetime.tzinfo):
     STDOFFSET = datetime.timedelta(seconds=-time.timezone)
     if time.daylight:
-        DSTOFFSET = time.timedelta(seconds=-time.altzone)
+        DSTOFFSET = datetime.timedelta(seconds=-time.altzone)
     else:
         DSTOFFSET = STDOFFSET
 
@@ -127,14 +131,12 @@ class LocalTimezone(datetime.tzinfo):
     def utcoffset(self, dt):
         if self._isdst(dt):
             return self.DSTOFFSET
-        else:
-            return self.STDOFFSET
+        return self.STDOFFSET
 
     def dst(self, dt):
         if self._isdst(dt):
             return self.DSTDIFF
-        else:
-            return datetime.timedelta(0)
+        return datetime.timedelta(0)
 
     def tzname(self, dt):
         return time.tzname[self._isdst(dt)]
@@ -147,93 +149,174 @@ class LocalTimezone(datetime.tzinfo):
 
 
 def read_config():
-    d = {}
-    f = open(CFG)
-    for r in f:
-        p = r.strip().split("=", 1)
-        if p:
-            d[p[0]] = p[1]
-    f.close()
-    # Decrypt password if it exists
-    if "pwd" in d:
-        d["pwd"] = decrypt_password(d["pwd"])
-    return d
+    try:
+        with open(CFG, encoding="utf-8") as f:
+            cfg = json.load(f)
+    except FileNotFoundError:
+        raise TickError("尚未授权。" + AUTH_HINT) from None
+    except (OSError, ValueError):
+        raise TickError("旧版或损坏的授权配置。" + AUTH_HINT) from None
+    if not isinstance(cfg, dict) or cfg.get("version") != CONFIG_VERSION:
+        raise TickError("旧版或损坏的授权配置。" + AUTH_HINT)
+    if not isinstance(cfg.get("projectId"), str) or not cfg["projectId"]:
+        raise TickError("授权配置缺少收集箱。" + AUTH_HINT)
+    return {"token": decrypt_token(cfg.get("token")), "projectId": cfg["projectId"]}
 
 
 def write_config(cfg):
-    f = os.fdopen(os.open(CFG, os.O_WRONLY | os.O_CREAT, 0o600), "w")
-    for k, v in cfg.items():
-        # Encrypt password before writing
-        if k == "pwd":
-            v = encrypt_password(v)
-        f.write(f"{k}={v}\n")
-    f.close()
+    stored = {"version": CONFIG_VERSION, "token": encrypt_token(cfg["token"]), "projectId": cfg["projectId"]}
+    # Create next to the destination so replacement is atomic on this filesystem.
+    fd, path = tempfile.mkstemp(prefix=".ticktick-", dir=os.path.dirname(CFG))
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            os.fchmod(f.fileno(), 0o600)
+            json.dump(stored, f)
+            f.write("\n")
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(path, CFG)
+    finally:
+        if os.path.exists(path):
+            os.unlink(path)
 
 
-def generate_request(url, cookie=None):
-    r = urllib.request.Request(url)
-    r.add_header(
-        "User-Agent",
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36",
-    )
-    r.add_header("Accept-Language", "zh-CN,en-US;q=0.7,en;q=0.3")
-    r.add_header("Referer", BASE_URL)
-    r.add_header("Origin", BASE_URL)
-    r.add_header("DNT", "1")
-    r.add_header("Accept", "application/json, text/javascript, */*; q=0.01")
-    r.add_header("Content-Type", "application/json; charset=UTF-8")
-    r.add_header("X-Requested-With", "XMLHttpRequest")
-    r.add_header("Accept-Encoding", "deflate")
-    r.add_header(
-        "x-device",
-        f'{{"platform":"web","os":"macOS 10.15.7","device":"Chrome 146.0.0.0","name":"","version":8040,"id":"{object_id()}","channel":"website","campaign":"","websocket":""}}',
-    )
-    if cookie:
-        r.add_header("Cookie", cookie)
-    return r
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        # Do not forward Authorization to another endpoint.
+        return None
 
 
-def object_id(args=[]):
-    if not args:
-        args.extend([random.randint(0, 16777215), random.randint(0, 32766), random.randint(0, 16777215)])
-    args[1] += 1
-    if args[2] > 16777215:
-        args[2] = 0
-    return "{:08x}{:06x}{:04x}{:06x}".format(int(time.time()), args[0], args[1], args[2])
+class MCPClient:
+    def __init__(self, api_token):
+        self.headers = {
+            "Authorization": "Bearer " + validate_token(api_token),
+            "Content-Type": "application/json",
+            "Accept": "application/json, text/event-stream",
+        }
+        self.opener = urllib.request.build_opener(NoRedirect())
+        self.next_id = 0
+
+    def initialize(self):
+        result = self.request(
+            "initialize",
+            {
+                "protocolVersion": "2025-03-26",
+                "capabilities": {},
+                "clientInfo": {"name": "alfred-tick", "version": VERSION},
+            },
+        )
+        if result.get("protocolVersion") != "2025-03-26" or "tools" not in result.get("capabilities", {}):
+            raise TickError("MCP 协议或工具能力不兼容。")
+        self.headers["MCP-Protocol-Version"] = result["protocolVersion"]
+        self.request("notifications/initialized", {}, notification=True)
+
+    def request(self, method, params, notification=False):
+        body = {"jsonrpc": "2.0", "method": method, "params": params}
+        if not notification:
+            self.next_id += 1
+            body["id"] = self.next_id
+        req = urllib.request.Request(MCP_URL, data=json.dumps(body).encode("utf-8"), headers=self.headers)
+        try:
+            with self.opener.open(req, timeout=20) as response:
+                if method == "initialize" and response.headers.get("Mcp-Session-Id"):
+                    self.headers["Mcp-Session-Id"] = response.headers["Mcp-Session-Id"]
+                if notification and response.status in (200, 202, 204):
+                    return {}
+                content_type = response.headers.get("Content-Type", "").split(";", 1)[0].strip()
+                if content_type == "application/json":
+                    message = json.load(response)
+                elif content_type == "text/event-stream":
+                    message = self.read_event_response(response, body.get("id"))
+                else:
+                    raise TickError("MCP 返回了无法识别的响应。")
+        except urllib.error.HTTPError as e:
+            if e.code in (401, 403):
+                raise TickError("Token 无效、已过期或权限不足。" + AUTH_HINT) from None
+            raise TickError(f"MCP 请求失败（HTTP {e.code}）。") from None
+        except (urllib.error.URLError, TimeoutError, OSError, http.client.HTTPException):
+            raise TickError("网络连接失败或超时。") from None
+        except (ValueError, UnicodeError):
+            raise TickError("MCP 返回了无效数据。") from None
+        if not isinstance(message, dict) or message.get("jsonrpc") != "2.0" or message.get("id") != body.get("id"):
+            raise TickError("MCP 响应与请求不匹配。")
+        if "error" in message:
+            raise TickError("MCP 请求被拒绝。")
+        if not isinstance(message.get("result"), dict):
+            raise TickError("MCP 响应缺少结果。")
+        return message["result"]
+
+    @staticmethod
+    def read_event_response(response, request_id):
+        data = []
+        deadline = time.monotonic() + 30
+        for raw in response:
+            if time.monotonic() > deadline:
+                raise TickError("MCP 响应超时。")
+            line = raw.decode("utf-8").rstrip("\r\n")
+            if line.startswith("data:"):
+                data.append(line[5:].removeprefix(" "))
+            elif not line and data:
+                message = json.loads("\n".join(data))
+                data = []
+                if isinstance(message, dict) and message.get("id") == request_id:
+                    return message
+        raise TickError("MCP 响应中断或缺少结果。")
+
+    def call_tool(self, name, arguments):
+        result = self.request("tools/call", {"name": name, "arguments": arguments})
+        if result.get("isError"):
+            raise TickError("滴答 MCP 工具执行失败。")
+        payload = result.get("structuredContent")
+        if payload is None:
+            try:
+                blocks = result.get("content", [])
+                if not isinstance(blocks, list) or any(not isinstance(b, dict) for b in blocks):
+                    raise ValueError()
+                texts = [block["text"] for block in blocks if block.get("type") == "text"]
+                # Older MCP clients can receive one text block per list item.
+                if name == "list_projects" and len(texts) > 1:
+                    payload = [json.loads(text) for text in texts]
+                else:
+                    payload = json.loads("\n".join(texts))
+            except (ValueError, TypeError, KeyError):
+                raise TickError("滴答 MCP 工具返回了无效结果。") from None
+        if not isinstance(payload, (dict, list)) or (isinstance(payload, dict) and "error" in payload):
+            raise TickError("滴答 MCP 工具执行失败。")
+        return payload
+
+    def validate_tools(self):
+        found = {}
+        params = {}
+        cursors = set()
+        while True:
+            result = self.request("tools/list", params)
+            for tool in result.get("tools", []):
+                found[tool["name"]] = tool
+            cursor = result.get("nextCursor")
+            if not cursor:
+                break
+            if cursor in cursors:
+                raise TickError("MCP 工具列表分页异常。")
+            cursors.add(cursor)
+            params = {"cursor": cursor}
+        schema = found.get("create_task", {}).get("inputSchema", {})
+        if "task" not in schema.get("properties", {}) or "list_projects" not in found:
+            raise TickError("MCP 缺少所需的任务或清单工具。")
 
 
 def send(query):
     cfg = read_config()
-    for _ in range(2):
-        if "projectId" not in cfg or "cookie" not in cfg:
-            if "user" in cfg and "pwd" in cfg:
-                data = {"username": cfg["user"], "password": cfg["pwd"]}
-                try:
-                    result = login_request(data)
-                except Exception:
-                    break
-                cfg.update(result)
-                write_config(cfg)
-            else:
-                break
-        item = generate_item(query, cfg["projectId"])
-        r = generate_request(API_URL, cfg["cookie"])
-        r.data = json.dumps(item).encode("utf-8")
-        try:
-            c = urllib.request.urlopen(r)
-            c.read()
-            c.close()
-        except urllib.error.HTTPError as e:
-            if e.code == 401:
-                del cfg["projectId"]
-                del cfg["cookie"]
-                continue
-            return False
-        except Exception:
-            return False
-        return c.code == 200
-    print("Login first. ")
-    return False
+    item = generate_item(query, cfg["projectId"])
+    client = MCPClient(cfg["token"])
+    client.initialize()
+    # Never retry a task submission: an interrupted response may hide success.
+    try:
+        result = client.call_tool("create_task", {"task": item})
+        if not isinstance(result, dict) or not isinstance(result.get("id"), str) or not result["id"]:
+            raise TickError("返回结果缺少任务 ID。")
+    except TickError as e:
+        raise TickError(str(e) + " 未确认创建成功；请先检查收集箱再重试。") from None
+    return True
 
 
 def token(q, remove_last):
@@ -288,7 +371,7 @@ def parse(query):
                     d = d.replace(year=d.year + 1)
                 continue
 
-            m = re.match(r"\b({0})\b".format("|".join(WEEKDAY.keys())), t, re.I)
+            m = re.match(r"\b({})\b".format("|".join(WEEKDAY.keys())), t, re.I)
             if m:
                 state |= S_WEEKDAY
                 n = WEEKDAY[m.group(1)]
@@ -317,28 +400,32 @@ def parse(query):
         if state & S_TIME != 0:
             q["startDate"] = q["dueDate"] = d.strftime("%Y-%m-%dT%H:%M:%S.000%z")
             q["reminder"] = DEFAULT_TRIGGER
-            q["reminders"].append({"id": object_id(), "trigger": DEFAULT_TRIGGER})
+            q["reminders"].append(DEFAULT_TRIGGER)
         else:
             q["startDate"] = q["dueDate"] = d.strftime("%Y-%m-%dT%H:%M:%S.000+0000")
     return q, d, state
 
 
 def generate_item(query, pid):
-    item, _, state = parse(query)
-    n = datetime.datetime.now(tz=LocalTimezone())
-
-    item["modifiedTime"] = n.strftime("%Y-%m-%dT%H:%M:%S.000%z")
-    item["id"] = object_id()
-    item["status"] = 0
-    item["timeZone"] = n.tzname()
-    item["content"] = ""
-    item["sortOrder"] = 0
-    item["items"] = []
-    item["progress"] = 0
-    if state == S_NONE:
-        item["isAllDay"] = None
-    else:
+    parsed, _, state = parse(query)
+    if not parsed["title"]:
+        raise TickError("请输入任务标题。")
+    if parsed["priority"] not in (0, 1, 3, 5):
+        raise TickError("优先级最多使用三个感叹号。")
+    item = {k: parsed[k] for k in ("title", "priority", "startDate", "dueDate", "repeatFlag") if k in parsed and parsed[k] is not None}
+    if state != S_NONE:
         item["isAllDay"] = state & S_TIME == 0
+        # Use the macOS IANA zone, not ambiguous abbreviations such as CST.
+        zone = os.environ.get("TZ", "").lstrip(":")
+        if not zone:
+            zone = os.path.realpath("/etc/localtime").split("/zoneinfo/", 1)[-1]
+        try:
+            ZoneInfo(zone)
+        except (ValueError, ZoneInfoNotFoundError):
+            raise TickError("无法识别本机时区，请检查系统时区设置。") from None
+        item["timeZone"] = zone
+        if state & S_TIME:
+            item["reminders"] = parsed["reminders"]
     item["projectId"] = pid
     return item
 
@@ -349,9 +436,8 @@ def week_name(s):
 
 def month_day_name(s):
     if LANG == "CN":
-        return "{0}".format(s)
-    else:
-        return MSG[LANG]["monthday"][s - 1]
+        return f"{s}"
+    return MSG[LANG]["monthday"][s - 1]
 
 
 def desc(query):
@@ -377,65 +463,61 @@ def desc(query):
 
 def print_item(arg, title):
     print(
-        """<?xml version='1.0' encoding='utf-8'?>
+        f"""<?xml version='1.0' encoding='utf-8'?>
 <items>
-  <item valid="yes" arg="{arg}">
-    <title>{title}</title>
+  <item valid="yes" arg={quoteattr(arg)}>
+    <title>{escape(title)}</title>
     <subtitle>send to ticktick</subtitle>
     <icon>icon.png</icon>
   </item>
 </items>
-""".format(arg=arg, title=title)
+"""
     )
 
 
-def login_request(data):
-    r = generate_request(LOGIN_URL)
-    r.data = json.dumps(data).encode("utf-8")
-    rep = urllib.request.urlopen(r)
-    content = rep.read()
-    rep.close()
-    data = json.loads(content)
-    token = data.get("token", None)
-    if token:
-        token = "t=" + token
-    else:
-        cookies = rep.headers.get_all("Set-Cookie")
-        for c in cookies:
-            m = re.search(r"(t=\w+);", c)
-            if m:
-                break
-        else:
-            raise Exception("can't get token cookie")
-        token = m.group(1)
-    result = {"cookie": token}
-    result["projectId"] = data["inboxId"]
-    return result
+def auth(query):
+    api_token = validate_token(query.strip())
+    client = MCPClient(api_token)
+    client.initialize()
+    client.validate_tools()
+    projects = client.call_tool("list_projects", {})
+    if isinstance(projects, dict):
+        projects = [projects] if "id" in projects else projects.get("result")
+    if not isinstance(projects, list):
+        raise TickError("无法读取收集箱，原授权配置未更改。")
+    inboxes = [
+        p["id"] for p in projects if isinstance(p, dict) and isinstance(p.get("id"), str) and re.fullmatch(r"inbox(?:[0-9]+)?", p["id"])
+    ]
+    if len(inboxes) != 1:
+        raise TickError("无法唯一识别收集箱，原授权配置未更改。")
+    write_config({"token": api_token, "projectId": inboxes[0]})
 
 
-def login(query):
+def main(args=None):
+    args = sys.argv[1:] if args is None else args
     try:
-        user, pwd = query.split(" ", 1)
-        data = {"username": user, "password": pwd}
-        cfg = login_request(data)
-        cfg["user"] = user
-        cfg["pwd"] = pwd
-        write_config(cfg)
+        if len(args) == 2 and args[0] == "parse":
+            desc(args[1])
+        elif len(args) == 2 and args[0] == "auth":
+            auth(args[1])
+            print("授权成功")
+        elif len(args) == 1:
+            send(args[0])
+            print("增加任务成功")
+        else:
+            raise TickError("用法：tick.py auth <token> 或 tick.py '任务 [日期] [时间]'。")
+        return 0
+    except TickError as e:
+        print(str(e))
+    except (ValueError, OverflowError):
+        print("日期、时间或输入格式无效。")
+    except OSError:
+        print("无法读写配置或连接服务；请检查文件权限和网络。")
     except Exception:
-        if DEBUG:
-            traceback.print_exc()
-        print("Login failed")
-        return
-    print("Login done")
+        # Do not emit raw exceptions or tracebacks: they may contain a credential.
+        print("处理失败，请检查输入和 MCP 服务。")
+    return 1
 
 
-if len(sys.argv) == 3:
-    if sys.argv[1] == "parse":
-        desc(sys.argv[2])
-    elif sys.argv[1] == "login":
-        login(sys.argv[2])
-else:
-    if send(sys.argv[1]):
-        print("Done")
-    else:
-        print("Failed")
+if __name__ == "__main__":
+    sys.exit(main())

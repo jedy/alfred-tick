@@ -66,7 +66,7 @@
 	<key>disabled</key>
 	<false/>
 	<key>name</key>
-	<string>滴答清单 v1.9</string>
+	<string>滴答清单 v1.11</string>
 	<key>objects</key>
 	<array>
 		<dict>
@@ -77,9 +77,9 @@
 				<key>escaping</key>
 				<integer>64</integer>
 				<key>script</key>
-				<string>/usr/bin/python3 tick.py '{query}'</string>
+				<string>/usr/bin/python3 tick.py "$1"</string>
 				<key>scriptargtype</key>
-				<integer>0</integer>
+				<integer>1</integer>
 				<key>scriptfile</key>
 				<string></string>
 				<key>type</key>
@@ -120,9 +120,9 @@
 				<key>runningsubtext</key>
 				<string></string>
 				<key>script</key>
-				<string>/usr/bin/python3 tick.py parse '{query}'</string>
+				<string>/usr/bin/python3 tick.py parse "$1"</string>
 				<key>scriptargtype</key>
-				<integer>0</integer>
+				<integer>1</integer>
 				<key>scriptfile</key>
 				<string></string>
 				<key>subtext</key>
@@ -151,7 +151,7 @@
 				<key>removeextension</key>
 				<false/>
 				<key>text</key>
-				<string>增加任务 {query}</string>
+				<string>{query}</string>
 				<key>title</key>
 				<string>滴答清单</string>
 			</dict>
@@ -174,7 +174,7 @@
 				<key>text</key>
 				<string>{query}</string>
 				<key>title</key>
-				<string>滴答清单登陆</string>
+				<string>滴答清单授权</string>
 			</dict>
 			<key>type</key>
 			<string>alfred.workflow.output.notification</string>
@@ -189,11 +189,11 @@
 				<key>argumenttype</key>
 				<integer>0</integer>
 				<key>keyword</key>
-				<string>tick_login</string>
+				<string>tick_auth</string>
 				<key>subtext</key>
-				<string>输入邮箱&lt;空格&gt;密码</string>
+				<string>输入 MCP API 口令</string>
 				<key>text</key>
-				<string>登陆滴答清单</string>
+				<string>授权滴答清单</string>
 				<key>withspace</key>
 				<true/>
 			</dict>
@@ -212,9 +212,9 @@
 				<key>escaping</key>
 				<integer>64</integer>
 				<key>script</key>
-				<string>/usr/bin/python3 tick.py login '{query}'</string>
+				<string>/usr/bin/python3 tick.py auth "$1"</string>
 				<key>scriptargtype</key>
-				<integer>0</integer>
+				<integer>1</integer>
 				<key>scriptfile</key>
 				<string></string>
 				<key>type</key>
@@ -278,7 +278,7 @@
 	<key>variablesdontexport</key>
 	<array/>
 	<key>version</key>
-	<string>1.9</string>
+	<string>1.11</string>
 	<key>webaddress</key>
 	<string>https://github.com/jedy/alfred-tick</string>
 </dict>
